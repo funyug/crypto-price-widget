@@ -66,3 +66,22 @@ jobs:
           files: CryptoPriceWidget.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README with latest release link
+        run: |
+          $readme = Get-Content README.md -Raw
+          $version = "v${{ steps.get_version.outputs.version }}"
+          $repo = "funyug/crypto-price-widget"
+          $link = "[Download latest Windows build](https://github.com/$repo/releases/tag/$version)"
+          if ($readme -match '\[Download latest Windows build\]\(https://github.com/.*/releases/tag/v[0-9.]+\)') {
+            $readme = [System.Text.RegularExpressions.Regex]::Replace($readme, '\[Download latest Windows build\]\(https://github.com/.*/releases/tag/v[0-9.]+\)', $link)
+          } else {
+            $readme = "$link`n`n$readme"
+          }
+          Set-Content README.md $readme
+
+      - name: Commit and push updated README
+        run: |
+          git add README.md
+          git commit -m "docs: update download link for v${{ steps.get_version.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push || echo "No changes to push"
