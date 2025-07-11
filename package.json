@@ -1,0 +1,66 @@
+{
+  "name": "btc-price-widget",
+  "version": "1.0.0",
+  "description": "Bitcoin price widget for Windows 11 system tray",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "test": "mocha --timeout 20000 ./test/**/*.test.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3",
+    "mocha": "^10.8.2",
+    "spectron": "^19.0.0"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.0",
+    "axios": "^1.6.2",
+    "electron-auto-launch": "^5.0.7",
+    "electron-store": "^8.1.0"
+  },
+  "build": {
+    "appId": "com.btcprice.widget",
+    "productName": "Bitcoin Price Widget",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bitcoin Price Widget"
+    },
+    "portable": {
+      "artifactName": "BitcoinPriceWidget.exe"
+    },
+    "files": [
+      "assets/**/*",
+      "main.js",
+      "index.html",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  }
+}

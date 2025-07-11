@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+*.log
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Electron
+*.asar
+
+# Env
+.env
+
+# Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+
+# Windows
+*.exe
+*.dll
+*.bat
+*.cmd
+
+# Mac
+*.app
+
+# Linux
+*.out
+*.so
+*.bin
+
+# Others
+*.swp
+*.swo
