@@ -4,13 +4,18 @@ A minimal crypto price tracker that runs in the system tray on Windows 11.
 
 ## Features
 
-- Shows current BTC/USD or BTC/INR price in the system tray(Will add more in future)
+- Shows current BTC/USD or BTC/INR price in the system tray(Will add more in
+  future)
 - Updates every 60 seconds
 - Lightweight and runs in the background
 - No taskbar icon, only system tray
 - Exchange switcher: CoinGecko (USD) or CoinDCX (INR)
 
-## Installation
+## Download
+
+[Download latest Windows build](https://github.com/funyug/crypto-price-widget/releases/tag/v1.0.2)
+
+## Manual Installation
 
 1. Install Node.js from https://nodejs.org/
 2. Clone this repository
@@ -49,6 +54,3 @@ The executable will be created in the `dist` folder.
 - For auto start, the app adds itself to the current user's startup (no admin
   required). If you see a permission error, run the app from a user-writable
   location (not Program Files).
-
-[Download latest Windows build](https://github.com/funyug/crypto-price-widget/releases/tag/v1.0.2)
-
