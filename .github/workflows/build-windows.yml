@@ -28,7 +28,7 @@ jobs:
       - name: Copy .exe to root (assumes 1 .exe in dist)
         run: |
           $exe = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
-          Copy-Item $exe.FullName -Destination ./build.exe
+          Copy-Item $exe.FullName -Destination ./CryptoPriceWidget.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -39,9 +39,9 @@ jobs:
             ✅ **Latest Windows Executable**
 
             This release includes:
-            - 🔹 `build.exe`: Directly run the executable
+            - 🔹 `CryptoPriceWidget.exe`: Directly run the executable
 
             Automatically built from the `master` branch.
-          files: build.exe
+          files: CryptoPriceWidget.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
