@@ -4,11 +4,15 @@ A minimal Bitcoin price tracker that runs in the system tray on Windows 11.
 
 ## Features
 
-- Shows current BTC/USD price in the system tray
+- Shows current BTC/USD or BTC/INR price in the system tray
 - Displays 24h price change with emoji indicator (📈/📉)
 - Updates every 60 seconds
 - Lightweight and runs in the background
 - No taskbar icon, only system tray
+- Exchange switcher: CoinGecko (USD) or CoinDCX (INR)
+- Context menu option to enable/disable auto start on Windows boot (current
+  user, no admin required)
+- Subtle notification when auto start is toggled
 
 ## Installation
 
@@ -18,7 +22,6 @@ A minimal Bitcoin price tracker that runs in the system tray on Windows 11.
    ```
    npm install
    ```
-4. Create an `assets` folder and add a `icon.png` file for the tray icon (recommended size: 16x16 or 32x32 pixels)
 
 ## Running the App
 
@@ -39,10 +42,14 @@ The executable will be created in the `dist` folder.
 ## Usage
 
 - Left-click the tray icon to see the current price and menu
+- Use the context menu to switch exchanges or enable/disable auto start
 - Click "Refresh" to manually update the price
 - Click "Quit" to exit the application
 
 ## Notes
 
-- The app uses the CoinGecko API to fetch price data
+- The app uses the CoinGecko and CoinDCX APIs to fetch price data
 - Internet connection is required for price updates
+- For auto start, the app adds itself to the current user's startup (no admin
+  required). If you see a permission error, run the app from a user-writable
+  location (not Program Files).
