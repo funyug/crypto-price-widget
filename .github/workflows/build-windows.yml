@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -22,6 +24,19 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Configure git for CI
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Auto-bump version (patch)
+        id: bump_version
+        run: |
+          npm version patch --no-git-tag-version
+          git add package.json package-lock.json || true
+          git commit -m "ci: bump version [skip ci]" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
       - name: Build Windows executable
         run: npm run build:win
 
@@ -30,13 +45,19 @@ jobs:
           $exe = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
           Copy-Item $exe.FullName -Destination ./CryptoPriceWidget.exe
 
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Windows Build
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Crypto Price Widget v${{ steps.get_version.outputs.version }}
           body: |
-            ✅ **Latest Windows Executable**
+            ✅ **Windows Executable v${{ steps.get_version.outputs.version }}**
 
             This release includes:
             - 🔹 `CryptoPriceWidget.exe`: Directly run the executable
