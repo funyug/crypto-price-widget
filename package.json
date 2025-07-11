@@ -1,7 +1,7 @@
 {
-  "name": "btc-price-widget",
+  "name": "crypto-price-widget",
   "version": "1.0.0",
-  "description": "Bitcoin price widget for Windows 11 system tray",
+  "description": "Crypto price widget for Windows 11",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -25,8 +25,8 @@
     "electron-store": "^8.1.0"
   },
   "build": {
-    "appId": "com.btcprice.widget",
-    "productName": "Bitcoin Price Widget",
+    "appId": "com.cryptoprice.widget",
+    "productName": "Crypto Price Widget",
     "directories": {
       "output": "dist"
     },
@@ -41,10 +41,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "shortcutName": "Bitcoin Price Widget"
+      "shortcutName": "Crypto Price Widget"
     },
     "portable": {
-      "artifactName": "BitcoinPriceWidget.exe"
+      "artifactName": "CryptoPriceWidget.exe"
     },
     "files": [
       "assets/**/*",

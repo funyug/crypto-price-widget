@@ -1,18 +1,14 @@
-# Bitcoin Price Widget
+# Crypto Price Widget
 
-A minimal Bitcoin price tracker that runs in the system tray on Windows 11.
+A minimal crypto price tracker that runs in the system tray on Windows 11.
 
 ## Features
 
-- Shows current BTC/USD or BTC/INR price in the system tray
-- Displays 24h price change with emoji indicator (📈/📉)
+- Shows current BTC/USD or BTC/INR price in the system tray(Will add more in future)
 - Updates every 60 seconds
 - Lightweight and runs in the background
 - No taskbar icon, only system tray
 - Exchange switcher: CoinGecko (USD) or CoinDCX (INR)
-- Context menu option to enable/disable auto start on Windows boot (current
-  user, no admin required)
-- Subtle notification when auto start is toggled
 
 ## Installation
 
