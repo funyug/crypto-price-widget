@@ -205,7 +205,16 @@ function buildContextMenu(priceStr, changeStr) {
         } catch (err) {
           // Silently revert the checkbox if failed
           menuItem.checked = !(menuItem.checked);
-          notificationMsg = 'Could not change auto start. Permission denied.';
+          let msg = 'Failed to change auto start.';
+          if (err && err.message && /access is denied|permission/i.test(err.message)) {
+            msg = 'Auto start could not be enabled or disabled due to insufficient permissions. This feature may not be available in your environment.';
+          } else if (typeof err === 'string') {
+            msg = err;
+          } else if (err && err.message) {
+            msg = err.message;
+          }
+          notificationMsg = msg;
+          log(msg);
         }
         // Always update checked state to reflect actual status
         autoLauncher.isEnabled().then(enabled => {
@@ -239,8 +248,9 @@ function buildContextMenu(priceStr, changeStr) {
 
 function buildAndSetMenu(price, change) {
   let priceStr = '--', changeStr = '--';
+  const symbol = (EXCHANGES[selectedExchange] && EXCHANGES[selectedExchange].symbol) ? EXCHANGES[selectedExchange].symbol : '';
   if (typeof price === 'number' && !isNaN(price)) {
-    priceStr = EXCHANGES[selectedExchange].symbol + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    priceStr = symbol + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   if (typeof change === 'number' && !isNaN(change)) {
     changeStr = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
@@ -310,6 +320,8 @@ function createWindow() {
       show: false,
       skipTaskbar: true,
       resizable: false,
+      movable: true, // Allow window to be dragged
+      focusable: false, // Prevent focus at creation
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
@@ -320,6 +332,8 @@ function createWindow() {
       }
     };
     mainWindow = new BrowserWindow(windowOptions);
+    // Force window to top right on start
+    mainWindow.setPosition(width - 320, 20);
     
     // Load the index.html file with error handling
     log('Loading index.html');
@@ -343,18 +357,27 @@ function createWindow() {
     mainWindow.once('ready-to-show', () => {
       log('Window is ready to show');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        // Only show on desktop (not over other apps)
-        if (process.platform === 'win32') {
-          // On Windows, minimize to desktop by default
-          mainWindow.setAlwaysOnTop(false, 'screen-saver');
-          mainWindow.setVisibleOnAllWorkspaces(false);
-          mainWindow.showInactive(); // Show without stealing focus
+        // Prevent window from taking focus or appearing above Explorer
+        mainWindow.setAlwaysOnTop(false);
+        mainWindow.setVisibleOnAllWorkspaces(false);
+        mainWindow.setSkipTaskbar(true);
+        mainWindow.setFocusable(false);
+        if (process.platform === 'win32' && typeof mainWindow.showInactive === 'function') {
+          mainWindow.showInactive();
         } else {
           mainWindow.show();
-          mainWindow.setAlwaysOnTop(false);
-          mainWindow.setVisibleOnAllWorkspaces(false);
         }
+        // Ensure window is not in the taskbar
+        mainWindow.setSkipTaskbar(true);
         log('Window should now be visible (desktop only)');
+        // Show Windows notification popup
+        if (process.platform === 'win32' && Notification && Notification.isSupported()) {
+          new Notification({
+            title: 'Bitcoin Price Widget',
+            body: 'Added to desktop',
+            silent: false
+          }).show();
+        }
       }
     });
     
@@ -509,12 +532,11 @@ process.on('uncaughtException', (error) => {
 // Ensure autoLauncher is always defined for current user only
 let autoLauncher = null;
 if (process.platform === 'win32') {
-  const AutoLaunch = require('electron-auto-launch');
+  const AutoLaunch = require('auto-launch');
   autoLauncher = new AutoLaunch({
     name: 'Bitcoin Price Widget',
     path: process.execPath,
-    isHidden: false, // show app window on startup
-    // current user only (default, do not set "scope" to "all")
+    isHidden: false // show app window on startup
   });
 }
 
