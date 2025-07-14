@@ -37,9 +37,6 @@ const store = new Store();
 let mainWindow = null;
 let tray = null;
 let contextMenu = null;
-let updateInterval = null;
-const API_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true';
-let isQuitting = false;
 
 function showErrorAndQuit(title, message) {
   log(`${title}: ${message}`);
@@ -321,7 +318,7 @@ function createWindow() {
       skipTaskbar: true,
       resizable: false,
       movable: true, // Allow window to be dragged
-      focusable: false, // Prevent focus at creation
+      focusable: true, // Prevent focus at creation
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
@@ -357,19 +354,7 @@ function createWindow() {
     mainWindow.once('ready-to-show', () => {
       log('Window is ready to show');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        // Prevent window from taking focus or appearing above Explorer
-        mainWindow.setAlwaysOnTop(false);
-        mainWindow.setVisibleOnAllWorkspaces(false);
-        mainWindow.setSkipTaskbar(true);
-        mainWindow.setFocusable(false);
-        if (process.platform === 'win32' && typeof mainWindow.showInactive === 'function') {
-          mainWindow.showInactive();
-        } else {
-          mainWindow.show();
-        }
-        // Ensure window is not in the taskbar
-        mainWindow.setSkipTaskbar(true);
-        log('Window should now be visible (desktop only)');
+        mainWindow.showInactive();
         // Show Windows notification popup
         if (process.platform === 'win32' && Notification && Notification.isSupported()) {
           new Notification({
@@ -384,14 +369,6 @@ function createWindow() {
     // Handle window close
     mainWindow.on('close', (e) => {
       log('Window close event received');
-      if (!isQuitting) {
-        e.preventDefault();
-        log('Prevented window close - hiding instead');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.hide();
-        }
-        return false;
-      }
       log('App is quitting - allowing window close');
       return true;
     });
@@ -463,8 +440,8 @@ app.whenReady().then(async () => {
       }
     }
     
-    // Update price every 10 seconds
-    log('Setting up price update interval (10s)');
+    // Update price every 60 seconds
+    log('Setting up price update interval (60s)');
     setInterval(() => {
       log('Performing scheduled price update...');
       updatePrice().catch(err => {
@@ -494,16 +471,6 @@ app.whenReady().then(async () => {
     log(`Fatal error during app initialization: ${error.message}\n${error.stack}`);
     dialog.showErrorBox('Fatal Error', 'Failed to initialize application. Please check the logs.');
     app.quit();
-  }
-});
-
-// Prevent app from quitting when all windows are closed
-app.on('window-all-closed', (event) => {
-  log('window-all-closed event received');
-  if (process.platform !== 'darwin') {
-    log('Preventing app quit on window close (non-macOS)');
-    event.preventDefault();
-    // Don't quit the app, keep it running in the background
   }
 });
 
