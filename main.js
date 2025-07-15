@@ -14,11 +14,8 @@ const isWSL = process.platform === 'linux' && !!process.env.WSL_DISTRO_NAME;
 const log = (message) => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
-  
-  // Log to console
+  // Log to console and file (keep for error/state tracking)
   console.log(logMessage.trim());
-  
-  // Log to file
   const logPath = path.join(app.getPath('userData'), 'app.log');
   fs.appendFileSync(logPath, logMessage);
 };
@@ -45,7 +42,6 @@ let selectedCoins = store.get('selectedCoins') || {
   coingecko: { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' },
   coindcx: { id: 'BTCINR', symbol: 'btc', name: 'Bitcoin' }
 };
-// --- End new ---
 
 function showErrorAndQuit(title, message) {
   log(`${title}: ${message}`);
@@ -105,45 +101,29 @@ if (!selectedExchange || !EXCHANGES[selectedExchange]) {
 function createTray() {
   log('Creating tray icon...');
   if (isWSL) {
-    log('Skipping tray icon creation in WSL');
     return;
   }
   try {
     let trayIconPath;
     let trayIcon;
     if (process.platform === 'win32') {
-      // Use resourcesPath for production builds
       trayIconPath = path.join(process.resourcesPath, 'assets', 'icon.ico');
-      if (!fs.existsSync(trayIconPath)) {
-        log(`Tray icon file does not exist (ICO): ${trayIconPath}`);
-      }
       trayIcon = nativeImage.createFromPath(trayIconPath);
-      log(`Tried loading tray icon (ICO): ${trayIconPath}, isEmpty: ${trayIcon.isEmpty()}`);
       if (trayIcon.isEmpty()) {
         trayIconPath = path.join(process.resourcesPath, 'assets', 'icon.png');
-        if (!fs.existsSync(trayIconPath)) {
-          log(`Tray icon file does not exist (PNG): ${trayIconPath}`);
-        }
         trayIcon = nativeImage.createFromPath(trayIconPath);
-        log(`Fallback to tray icon (PNG): ${trayIconPath}, isEmpty: ${trayIcon.isEmpty()}`);
       }
     } else {
       trayIconPath = path.join(__dirname, 'assets', 'icon.png');
-      if (!fs.existsSync(trayIconPath)) {
-        log(`Tray icon file does not exist: ${trayIconPath}`);
-      }
       trayIcon = nativeImage.createFromPath(trayIconPath);
-      log(`Tried loading tray icon (PNG): ${trayIconPath}, isEmpty: ${trayIcon.isEmpty()}`);
     }
     if (trayIcon.isEmpty()) {
-      log('Tray icon failed to load. Please check assets/icon.png or assets/icon.ico');
+      log('Tray icon failed to load.');
       return;
     }
     tray = new Tray(trayIcon);
     buildAndSetMenu(lastKnownPrice, lastKnownChange);
     tray.setToolTip('Bitcoin Price Widget');
-    
-    // Toggle window visibility on tray icon click
     tray.on('click', () => {
       if (mainWindow) {
         if (mainWindow.isVisible()) {
@@ -154,9 +134,8 @@ function createTray() {
         }
       }
     });
-    
   } catch (err) {
-    log(`Error creating tray: ${err.message}\n${err.stack}`);
+    log(`Error creating tray: ${err.message}`);
     showErrorAndQuit('Tray Error', `Failed to create tray icon: ${err.message}`);
   }
 }
@@ -167,7 +146,6 @@ let lastKnownPrice = null;
 let lastKnownChange = null;
 
 function buildContextMenu(priceStr, changeStr) {
-  // --- New: dynamic coin/market label ---
   let coinLabel = '';
   if (selectedExchange === 'coingecko' && selectedCoins.coingecko) {
     coinLabel = `${selectedCoins.coingecko.name} (${selectedCoins.coingecko.symbol.toUpperCase()}/USD)`;
@@ -176,7 +154,6 @@ function buildContextMenu(priceStr, changeStr) {
   } else {
     coinLabel = `BTC/${EXCHANGES[selectedExchange].currency}`;
   }
-  // --- End new ---
 
   const menuTemplate = [
     { label: `${coinLabel}: ${priceStr} (${changeStr})`, id: 'price', enabled: false },
@@ -217,7 +194,6 @@ function buildContextMenu(priceStr, changeStr) {
           return;
         }
         const { BrowserWindow } = require('electron');
-        log('Creating symbol input modal window...');
         const modal = new BrowserWindow({
           width: 340,
           height: 180,
@@ -241,41 +217,29 @@ function buildContextMenu(priceStr, changeStr) {
         const { app } = require('electron');
         let htmlPath;
         if (process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath)) {
-          // Development: use __dirname
           htmlPath = path.join(__dirname, 'symbol-input.html');
         } else {
-          // Production: use app.getAppPath() (inside asar) or extract to temp if needed
           const asarPath = path.join(app.getAppPath(), 'symbol-input.html');
           const fs = require('fs');
           if (fs.existsSync(asarPath)) {
             htmlPath = asarPath;
           } else {
-            // Extract to temp dir if not found in asar
             const tempPath = path.join(app.getPath('temp'), 'symbol-input.html');
             try {
               const src = path.join(app.getAppPath(), 'symbol-input.html');
               const buf = fs.readFileSync(src);
               fs.writeFileSync(tempPath, buf);
               htmlPath = tempPath;
-              log('Extracted symbol-input.html to temp: ' + tempPath);
             } catch (e) {
-              log('Failed to extract symbol-input.html to temp: ' + e.message);
-              htmlPath = asarPath; // fallback, will error
+              htmlPath = asarPath;
             }
           }
         }
-        log('Loading symbol-input.html from: ' + htmlPath);
-        modal.loadFile(htmlPath).then(() => {
-          log('symbol-input.html loaded successfully');
-        }).catch(err => {
-          log('Error loading symbol-input.html: ' + err.message);
-        });
+        modal.loadFile(htmlPath).catch(() => {});
         modal.once('ready-to-show', () => {
-          log('symbol input modal ready-to-show');
           modal.show();
         });
         modal.on('closed', () => {
-          log('symbol input modal closed');
           global.symbolInputWindow = null;
         });
       }
@@ -585,26 +549,19 @@ ipcMain.on('renderer-error', (event, errMsg) => {
 
 // App event handlers
 app.whenReady().then(async () => {
-  log('App is ready');
   try {
-    // --- New: Fetch coin lists at startup ---
-    // CoinGecko
+    // Fetch coin lists at startup
     try {
-      log('Fetching CoinGecko coin list...');
       const resp = await axios.get('https://api.coingecko.com/api/v3/coins/list');
       coinGeckoCoinList = resp.data
         .filter(c => !!c.id && !!c.symbol && !!c.name)
         .sort((a, b) => a.name.localeCompare(b.name));
-      log(`Loaded ${coinGeckoCoinList.length} coins from CoinGecko`);
     } catch (err) {
       log(`Failed to fetch CoinGecko coin list: ${err.message}`);
       coinGeckoCoinList = [{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }];
     }
-    // CoinDCX
     try {
-      log('Fetching CoinDCX market list...');
       const resp = await axios.get('https://api.coindcx.com/exchange/ticker');
-      // Extract unique coins with INR pairs
       const inrMarkets = resp.data.filter(t => t.market.endsWith('INR'));
       const seen = new Set();
       coinDCXCoinList = inrMarkets.map(t => {
@@ -615,34 +572,21 @@ app.whenReady().then(async () => {
         seen.add(c.id);
         return true;
       }).sort((a, b) => a.name.localeCompare(b.name));
-      log(`Loaded ${coinDCXCoinList.length} INR markets from CoinDCX`);
     } catch (err) {
       log(`Failed to fetch CoinDCX market list: ${err.message}`);
       coinDCXCoinList = [{ id: 'BTCINR', symbol: 'btc', name: 'Bitcoin' }];
     }
-    // --- End new ---
 
-    // Set the app user model ID for Windows
     if (process.platform === 'win32') {
       app.setAppUserModelId('com.btcprice.widget');
-      log('Set Windows AppUserModelID');
     }
 
-    // Create tray first
-    log('Creating system tray...');
     createTray();
-    
-    // Then create window
-    log('Creating main window...');
     createWindow();
-    
-    // Initial price update
     try {
-      log('Performing initial price update...');
       await updatePrice();
-      log('Initial price update completed');
     } catch (error) {
-      log(`Error in initial price update: ${error.message}\n${error.stack}`);
+      log(`Error in initial price update: ${error.message}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('price-update', {
           error: true,
@@ -650,24 +594,15 @@ app.whenReady().then(async () => {
         });
       }
     }
-    
-    // Update price every 60 seconds
-    log('Setting up price update interval (60s)');
     setInterval(() => {
-      log('Performing scheduled price update...');
       updatePrice().catch(err => {
         log(`Scheduled price update failed: ${err.message}`);
       });
     }, FETCH_INTERVAL);
-    
-    // Handle app activation (macOS)
     app.on('activate', () => {
-      log('App activated');
       if (BrowserWindow.getAllWindows().length === 0) {
-        log('No windows found, creating new window');
         createWindow();
       } else {
-        log('Bringing existing window to front');
         const windows = BrowserWindow.getAllWindows();
         windows.forEach(win => {
           if (win.isMinimized()) win.restore();
@@ -675,11 +610,8 @@ app.whenReady().then(async () => {
         });
       }
     });
-    
-    log('App initialization completed');
-    
   } catch (error) {
-    log(`Fatal error during app initialization: ${error.message}\n${error.stack}`);
+    log(`Fatal error during app initialization: ${error.message}`);
     dialog.showErrorBox('Fatal Error', 'Failed to initialize application. Please check the logs.');
     app.quit();
   }
@@ -687,17 +619,11 @@ app.whenReady().then(async () => {
 
 // Handle app quit
 app.on('before-quit', (event) => {
-  log('before-quit event received');
   isQuitting = true;
-  
-  // Clean up resources
   if (mainWindow && !mainWindow.isDestroyed()) {
-    log('Cleaning up main window');
     mainWindow.removeAllListeners();
     mainWindow.destroy();
   }
-  
-  log('App is quitting...');
 });
 
 // Handle uncaught exceptions in the main process
@@ -718,14 +644,4 @@ if (process.platform === 'win32') {
   });
 }
 
-// Remove or comment out verbose logs for production
-// log(`Application starting in ${process.platform === 'linux' && process.env.WSL_DISTRO_NAME ? 'WSL' : 'native'} environment`);
-// log(`Platform: ${process.platform}, Arch: ${process.arch}`);
-// log(`App path: ${app.getAppPath()}`);
-// log(`User data path: ${app.getPath('userData')}`);
-// log(`Command line arguments: ${process.argv.join(' ')}`);
-// log(`App version: ${app.getVersion()}`);
-// log(`Electron version: ${process.versions.electron}`);
-// log(`Chrome version: ${process.versions.chrome}`);
-// log(`Node.js version: ${process.versions.node}`);
 
