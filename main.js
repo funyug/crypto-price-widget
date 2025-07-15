@@ -4,6 +4,19 @@ const fs = require('fs');
 const axios = require('axios');
 const Store = require('electron-store');
 
+// Ensure single instance
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Only in the second instance: show notification and exit, do not initialize app
+  app.on('ready', () => {
+    if (Notification && Notification.isSupported()) {
+      new Notification({ title: 'Crypto Price Widget', body: 'App is already running.' }).show();
+    }
+    app.quit();
+  });
+  // If not ready, quit as soon as possible
+  setTimeout(() => app.quit(), 500);
+}
 // Enable remote module
 require('@electron/remote/main').initialize();
 
@@ -168,6 +181,16 @@ function buildContextMenu(priceStr, changeStr) {
           click: async () => {
             selectedExchange = 'coingecko';
             store.set('exchange', 'coingecko');
+            // Check if previously selected coin exists in CoinGecko
+            let prevSymbol = selectedCoins.coindcx ? selectedCoins.coindcx.symbol : 'btc';
+            let found = coinGeckoCoinList.find(c => c.symbol.toLowerCase() === prevSymbol.toLowerCase());
+            if (!found) {
+              found = coinGeckoCoinList.find(c => c.id === 'bitcoin');
+            }
+            if (found) {
+              selectedCoins.coingecko = { id: found.id, symbol: found.symbol, name: found.name };
+              store.set('selectedCoins', selectedCoins);
+            }
             await updatePrice(true);
             buildAndSetMenu(lastKnownPrice, lastKnownChange);
           }
@@ -179,6 +202,16 @@ function buildContextMenu(priceStr, changeStr) {
           click: async () => {
             selectedExchange = 'coindcx';
             store.set('exchange', 'coindcx');
+            // Check if previously selected coin exists in CoinDCX
+            let prevSymbol = selectedCoins.coingecko ? selectedCoins.coingecko.symbol : 'btc';
+            let found = coinDCXCoinList.find(c => c.symbol.toLowerCase() === prevSymbol.toLowerCase());
+            if (!found) {
+              found = coinDCXCoinList.find(c => c.id === 'BTCINR');
+            }
+            if (found) {
+              selectedCoins.coindcx = { id: found.id, symbol: found.symbol, name: found.name };
+              store.set('selectedCoins', selectedCoins);
+            }
             await updatePrice(true);
             buildAndSetMenu(lastKnownPrice, lastKnownChange);
           }
