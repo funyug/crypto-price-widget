@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Enter Coin Symbol</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #fff;
+      color: #222;
+      min-width: 260px;
+    }
+    .label {
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 15px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    button {
+      padding: 6px 16px;
+      font-size: 15px;
+      border: none;
+      border-radius: 4px;
+      background: #f7931a;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.cancel {
+      background: #aaa;
+    }
+    .error {
+      color: #e74c3c;
+      font-size: 13px;
+      margin-bottom: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="label" id="prompt">Enter the symbol of the coin (e.g., btc, eth, sol):</div>
+  <div class="error" id="errorMsg"></div>
+  <input type="text" id="symbolInput" autocomplete="off" autofocus />
+  <div class="buttons">
+    <button id="okBtn">OK</button>
+    <button class="cancel" id="cancelBtn">Cancel</button>
+  </div>
+  <script>
+    const input = document.getElementById('symbolInput');
+    const okBtn = document.getElementById('okBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const errorMsg = document.getElementById('errorMsg');
+    input.focus();
+
+    okBtn.onclick = () => {
+      const symbol = input.value.trim();
+      if (!symbol) {
+        errorMsg.textContent = "Please enter a symbol.";
+        errorMsg.style.display = "block";
+        return;
+      }
+      if (window.electronAPI && window.electronAPI.sendSymbolValue) {
+        window.electronAPI.sendSymbolValue(symbol);
+      }
+    };
+    cancelBtn.onclick = () => {
+      if (window.electronAPI && window.electronAPI.sendCancel) {
+        window.electronAPI.sendCancel();
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') okBtn.click();
+      if (e.key === 'Escape') cancelBtn.click();
+    });
+    // Handle error from main process
+    if (window.electronAPI && window.electronAPI.onSymbolInputError) {
+      window.electronAPI.onSymbolInputError((msg) => {
+        errorMsg.textContent = msg;
+        errorMsg.style.display = "block";
+      });
+    }
+  </script>
+</body>
+</html>

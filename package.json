@@ -51,6 +51,8 @@
       "main.js",
       "index.html",
       "preload.js",
+      "preload-symbol-input.js",
+      "symbol-input.html",
       "package.json"
     ],
     "extraResources": [

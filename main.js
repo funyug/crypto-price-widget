@@ -38,6 +38,15 @@ let mainWindow = null;
 let tray = null;
 let contextMenu = null;
 
+// --- New: Coin lists and selection ---
+let coinGeckoCoinList = [];
+let coinDCXCoinList = [];
+let selectedCoins = store.get('selectedCoins') || {
+  coingecko: { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' },
+  coindcx: { id: 'BTCINR', symbol: 'btc', name: 'Bitcoin' }
+};
+// --- End new ---
+
 function showErrorAndQuit(title, message) {
   log(`${title}: ${message}`);
   if (app && app.isReady()) {
@@ -53,13 +62,17 @@ const EXCHANGES = {
     id: 'coingecko',
     currency: 'USD',
     fetch: async () => {
-      const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true');
-      const { bitcoin } = response.data;
+      // Use selected coin
+      const coin = selectedCoins.coingecko || { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' };
+      const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${coin.id}&vs_currencies=usd&include_24hr_change=true`);
+      const data = response.data[coin.id];
+      if (!data) throw new Error(`Coin ${coin.id} not found in CoinGecko response`);
       return {
-        price: parseFloat(bitcoin.usd),
-        change: parseFloat(bitcoin.usd_24h_change),
+        price: parseFloat(data.usd),
+        change: parseFloat(data.usd_24h_change),
         currency: 'USD',
         symbol: '$',
+        coin: coin
       };
     }
   },
@@ -68,14 +81,17 @@ const EXCHANGES = {
     id: 'coindcx',
     currency: 'INR',
     fetch: async () => {
+      // Use selected market
+      const coin = selectedCoins.coindcx || { id: 'BTCINR', symbol: 'btc', name: 'Bitcoin' };
       const response = await axios.get('https://api.coindcx.com/exchange/ticker');
-      const btcinr = response.data.find(t => t.market === 'BTCINR');
-      if (!btcinr) throw new Error('BTCINR market not found in CoinDCX response');
+      const ticker = response.data.find(t => t.market === coin.id);
+      if (!ticker) throw new Error(`${coin.id} market not found in CoinDCX response`);
       return {
-        price: parseFloat(btcinr.last_price),
-        change: parseFloat(btcinr.change_24_hour),
+        price: parseFloat(ticker.last_price),
+        change: parseFloat(ticker.change_24_hour),
         currency: 'INR',
         symbol: '₹',
+        coin: coin
       };
     }
   }
@@ -151,8 +167,19 @@ let lastKnownPrice = null;
 let lastKnownChange = null;
 
 function buildContextMenu(priceStr, changeStr) {
+  // --- New: dynamic coin/market label ---
+  let coinLabel = '';
+  if (selectedExchange === 'coingecko' && selectedCoins.coingecko) {
+    coinLabel = `${selectedCoins.coingecko.name} (${selectedCoins.coingecko.symbol.toUpperCase()}/USD)`;
+  } else if (selectedExchange === 'coindcx' && selectedCoins.coindcx) {
+    coinLabel = `${selectedCoins.coindcx.name} (${selectedCoins.coindcx.symbol.toUpperCase()}/INR)`;
+  } else {
+    coinLabel = `BTC/${EXCHANGES[selectedExchange].currency}`;
+  }
+  // --- End new ---
+
   const menuTemplate = [
-    { label: `BTC/${EXCHANGES[selectedExchange].currency}: ${priceStr} (${changeStr})`, id: 'price', enabled: false },
+    { label: `${coinLabel}: ${priceStr} (${changeStr})`, id: 'price', enabled: false },
     { type: 'separator' },
     {
       label: 'Exchange',
@@ -180,7 +207,80 @@ function buildContextMenu(priceStr, changeStr) {
           }
         }
       ]
-    }
+    },
+    // --- New: Coin symbol input modal ---
+    {
+      label: 'Set Coin Symbol...',
+      click: async () => {
+        if (global.symbolInputWindow && !global.symbolInputWindow.isDestroyed()) {
+          global.symbolInputWindow.focus();
+          return;
+        }
+        const { BrowserWindow } = require('electron');
+        log('Creating symbol input modal window...');
+        const modal = new BrowserWindow({
+          width: 340,
+          height: 180,
+          resizable: false,
+          minimizable: false,
+          maximizable: false,
+          parent: mainWindow,
+          modal: true,
+          show: false,
+          frame: false,
+          alwaysOnTop: true,
+          skipTaskbar: true,
+          webPreferences: {
+            preload: path.join(__dirname, 'preload-symbol-input.js'),
+            contextIsolation: true,
+            nodeIntegration: false
+          }
+        });
+        global.symbolInputWindow = modal;
+        // Robust path resolution for dev and production (asar)
+        const { app } = require('electron');
+        let htmlPath;
+        if (process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath)) {
+          // Development: use __dirname
+          htmlPath = path.join(__dirname, 'symbol-input.html');
+        } else {
+          // Production: use app.getAppPath() (inside asar) or extract to temp if needed
+          const asarPath = path.join(app.getAppPath(), 'symbol-input.html');
+          const fs = require('fs');
+          if (fs.existsSync(asarPath)) {
+            htmlPath = asarPath;
+          } else {
+            // Extract to temp dir if not found in asar
+            const tempPath = path.join(app.getPath('temp'), 'symbol-input.html');
+            try {
+              const src = path.join(app.getAppPath(), 'symbol-input.html');
+              const buf = fs.readFileSync(src);
+              fs.writeFileSync(tempPath, buf);
+              htmlPath = tempPath;
+              log('Extracted symbol-input.html to temp: ' + tempPath);
+            } catch (e) {
+              log('Failed to extract symbol-input.html to temp: ' + e.message);
+              htmlPath = asarPath; // fallback, will error
+            }
+          }
+        }
+        log('Loading symbol-input.html from: ' + htmlPath);
+        modal.loadFile(htmlPath).then(() => {
+          log('symbol-input.html loaded successfully');
+        }).catch(err => {
+          log('Error loading symbol-input.html: ' + err.message);
+        });
+        modal.once('ready-to-show', () => {
+          log('symbol input modal ready-to-show');
+          modal.show();
+        });
+        modal.on('closed', () => {
+          log('symbol input modal closed');
+          global.symbolInputWindow = null;
+        });
+      }
+    },
+    // --- End new ---
   ];
 
   // Add auto start checkbox for Windows
@@ -263,7 +363,7 @@ async function updatePrice(force = false) {
   }
   lastFetchTime = now;
   try {
-    const { price, change, currency, symbol } = await EXCHANGES[selectedExchange].fetch();
+    const { price, change, currency, symbol, coin } = await EXCHANGES[selectedExchange].fetch();
     lastKnownPrice = price;
     lastKnownChange = change;
     buildAndSetMenu(price, change);
@@ -273,10 +373,11 @@ async function updatePrice(force = false) {
         change24h: change,
         currency,
         symbol,
+        coin,
         error: false
       });
     }
-    return { price, change };
+    return { price, change, coin };
   } catch (error) {
     log(`Error updating price: ${error.message}\n${error.stack}`);
     if (tray && contextMenu && lastKnownPrice !== null) {
@@ -288,6 +389,7 @@ async function updatePrice(force = false) {
         change24h: lastKnownChange,
         currency: EXCHANGES[selectedExchange].currency,
         symbol: EXCHANGES[selectedExchange].symbol,
+        coin: selectedCoins[selectedExchange],
         error: true,
         errorMessage: 'Failed to update price'
       });
@@ -318,7 +420,7 @@ function createWindow() {
       skipTaskbar: true,
       resizable: false,
       movable: true, // Allow window to be dragged
-      focusable: true, // Prevent focus at creation
+      focusable: true, // Restore focusable to true to avoid taskbar icon issue
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
@@ -355,6 +457,15 @@ function createWindow() {
       log('Window is ready to show');
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.showInactive();
+        // On Windows, try to push window behind Explorer and avoid focus
+        if (process.platform === 'win32') {
+          setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.blur();
+              mainWindow.setAlwaysOnTop(false, 'normal');
+            }
+          }, 200);
+        }
         // Show Windows notification popup
         if (process.platform === 'win32' && Notification && Notification.isSupported()) {
           new Notification({
@@ -402,6 +513,71 @@ ipcMain.on('refresh-price', async () => {
   }
 });
 
+// --- New: Symbol input modal IPC handlers ---
+ipcMain.on('symbol-input-value', async (event, symbol) => {
+  symbol = (symbol || '').trim().toLowerCase();
+  let found = null;
+
+  // Canonical CoinGecko symbol-to-ID mapping for major coins
+  const canonicalCoinGecko = {
+    btc: 'bitcoin',
+    eth: 'ethereum',
+    sol: 'solana',
+    bnb: 'binancecoin',
+    ada: 'cardano',
+    xrp: 'ripple',
+    doge: 'dogecoin',
+    ltc: 'litecoin',
+    dot: 'polkadot',
+    matic: 'matic-network',
+    link: 'chainlink',
+    shib: 'shiba-inu',
+    usdt: 'tether',
+    usdc: 'usd-coin',
+    trx: 'tron',
+    avax: 'avalanche-2',
+    // Add more as needed
+  };
+
+  if (selectedExchange === 'coingecko') {
+    let coinId = canonicalCoinGecko[symbol];
+    if (coinId) {
+      found = coinGeckoCoinList.find(c => c.id === coinId);
+    } else {
+      // fallback: first match by symbol
+      found = coinGeckoCoinList.find(c => c.symbol.toLowerCase() === symbol);
+    }
+    if (found) {
+      selectedCoins.coingecko = { id: found.id, symbol: found.symbol, name: found.name };
+      store.set('selectedCoins', selectedCoins);
+      await updatePrice(true);
+      buildAndSetMenu(lastKnownPrice, lastKnownChange);
+      if (global.symbolInputWindow) global.symbolInputWindow.close();
+    } else {
+      if (global.symbolInputWindow) {
+        global.symbolInputWindow.webContents.send('symbol-input-error', `No coin with symbol "${symbol}" found on CoinGecko.`);
+      }
+    }
+  } else {
+    found = coinDCXCoinList.find(c => c.symbol.toLowerCase() === symbol);
+    if (found) {
+      selectedCoins.coindcx = { id: found.id, symbol: found.symbol, name: found.name };
+      store.set('selectedCoins', selectedCoins);
+      await updatePrice(true);
+      buildAndSetMenu(lastKnownPrice, lastKnownChange);
+      if (global.symbolInputWindow) global.symbolInputWindow.close();
+    } else {
+      if (global.symbolInputWindow) {
+        global.symbolInputWindow.webContents.send('symbol-input-error', `No INR market with symbol "${symbol}" found on CoinDCX.`);
+      }
+    }
+  }
+});
+ipcMain.on('symbol-input-cancel', () => {
+  if (global.symbolInputWindow) global.symbolInputWindow.close();
+});
+// --- End new ---
+
 // Log renderer errors
 ipcMain.on('renderer-error', (event, errMsg) => {
   log(`Renderer process error: ${errMsg}`);
@@ -411,6 +587,41 @@ ipcMain.on('renderer-error', (event, errMsg) => {
 app.whenReady().then(async () => {
   log('App is ready');
   try {
+    // --- New: Fetch coin lists at startup ---
+    // CoinGecko
+    try {
+      log('Fetching CoinGecko coin list...');
+      const resp = await axios.get('https://api.coingecko.com/api/v3/coins/list');
+      coinGeckoCoinList = resp.data
+        .filter(c => !!c.id && !!c.symbol && !!c.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      log(`Loaded ${coinGeckoCoinList.length} coins from CoinGecko`);
+    } catch (err) {
+      log(`Failed to fetch CoinGecko coin list: ${err.message}`);
+      coinGeckoCoinList = [{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }];
+    }
+    // CoinDCX
+    try {
+      log('Fetching CoinDCX market list...');
+      const resp = await axios.get('https://api.coindcx.com/exchange/ticker');
+      // Extract unique coins with INR pairs
+      const inrMarkets = resp.data.filter(t => t.market.endsWith('INR'));
+      const seen = new Set();
+      coinDCXCoinList = inrMarkets.map(t => {
+        const base = t.market.replace('INR', '');
+        return { id: t.market, symbol: base.toLowerCase(), name: base.toUpperCase() };
+      }).filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      }).sort((a, b) => a.name.localeCompare(b.name));
+      log(`Loaded ${coinDCXCoinList.length} INR markets from CoinDCX`);
+    } catch (err) {
+      log(`Failed to fetch CoinDCX market list: ${err.message}`);
+      coinDCXCoinList = [{ id: 'BTCINR', symbol: 'btc', name: 'Bitcoin' }];
+    }
+    // --- End new ---
+
     // Set the app user model ID for Windows
     if (process.platform === 'win32') {
       app.setAppUserModelId('com.btcprice.widget');
@@ -433,7 +644,7 @@ app.whenReady().then(async () => {
     } catch (error) {
       log(`Error in initial price update: ${error.message}\n${error.stack}`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('price-update', { 
+        mainWindow.webContents.send('price-update', {
           error: true,
           message: 'Failed to fetch initial price'
         });
@@ -517,3 +728,4 @@ if (process.platform === 'win32') {
 // log(`Electron version: ${process.versions.electron}`);
 // log(`Chrome version: ${process.versions.chrome}`);
 // log(`Node.js version: ${process.versions.node}`);
+

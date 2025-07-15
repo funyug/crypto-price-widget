@@ -86,7 +86,7 @@
     </div>
     <div class="container">
         <div class="header">
-            <div class="title">Bitcoin (BTC/USD)</div>
+            <div class="title" id="coinTitle">Bitcoin (BTC/USD)</div>
         </div>
         <div class="price-container">
             <div class="price" id="price">$--,---.--</div>
@@ -101,11 +101,22 @@
         // Use preload-exposed API
         if (window.electronAPI) {
             window.electronAPI.onPriceUpdate((event, data) => {
-                const { price, change24h, error, errorMessage, currency, symbol } = data;
+                const { price, change24h, error, errorMessage, currency, symbol, coin } = data;
                 const priceElement = document.getElementById('price');
                 const changeElement = document.getElementById('changePercent');
                 const emojiElement = document.getElementById('changeEmoji');
                 const lastUpdatedElement = document.getElementById('lastUpdated');
+                const coinTitle = document.getElementById('coinTitle');
+                // Always update the coin label based on the latest data
+                if (coinTitle) {
+                    if (coin && coin.name && coin.symbol && currency) {
+                        coinTitle.textContent = `${coin.name} (${coin.symbol.toUpperCase()}/${currency})`;
+                    } else if (coin && coin.name && coin.symbol) {
+                        coinTitle.textContent = `${coin.name} (${coin.symbol.toUpperCase()})`;
+                    } else {
+                        coinTitle.textContent = 'Crypto Price Widget';
+                    }
+                }
                 if (error) {
                     priceElement.textContent = (price && !isNaN(price)) ? `${symbol || '$'}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Error';
                     changeElement.textContent = (typeof change24h === 'number' && !isNaN(change24h)) ? `${Math.abs(change24h).toFixed(2)}%` : '--.--%';
