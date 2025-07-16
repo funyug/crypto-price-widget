@@ -5,52 +5,55 @@
   <title>Enter Coin Symbol</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       margin: 0;
-      padding: 20px;
-      background: #fff;
-      color: #222;
-      min-width: 260px;
+      padding: 10px;
+      background: #202124; /* Dark background */
+      color: #e0e0e0; /* Light text */
+      min-width: 180px;
     }
     .label {
-      margin-bottom: 8px;
-      font-size: 15px;
+      margin-bottom: 4px;
+      font-size: 11px;
     }
     input[type="text"] {
       width: 100%;
-      padding: 8px;
-      font-size: 15px;
-      margin-bottom: 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      padding: 4px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      border: 1px solid #3c4043;
+      border-radius: 3px;
+      box-sizing: border-box;
+      background: #303134;
+      color: #e0e0e0;
     }
     .buttons {
       display: flex;
       justify-content: flex-end;
-      gap: 10px;
+      gap: 6px;
     }
     button {
-      padding: 6px 16px;
-      font-size: 15px;
+      padding: 3px 8px;
+      font-size: 11px;
       border: none;
-      border-radius: 4px;
-      background: #f7931a;
+      border-radius: 3px;
+      background: #f7931a; /* Keep Bitcoin orange */
       color: #fff;
       cursor: pointer;
     }
     button.cancel {
-      background: #aaa;
+      background: #5f6368; /* Darker gray for cancel button */
     }
     .error {
-      color: #e74c3c;
-      font-size: 13px;
-      margin-bottom: 8px;
+      color: #f44336; /* Brighter red for dark mode */
+      font-size: 10px;
+      margin-bottom: 4px;
       display: none;
     }
   </style>
 </head>
 <body>
-  <div class="label" id="prompt">Enter the symbol of the coin (e.g., btc, eth, sol):</div>
+  <div class="label" id="prompt">Enter coin symbol (e.g., btc, eth):</div>
   <div class="error" id="errorMsg"></div>
   <input type="text" id="symbolInput" autocomplete="off" autofocus />
   <div class="buttons">

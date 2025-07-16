@@ -228,8 +228,8 @@ function buildContextMenu(priceStr, changeStr) {
         }
         const { BrowserWindow } = require('electron');
         const modal = new BrowserWindow({
-          width: 340,
-          height: 180,
+          width: 220,
+          height: 120,
           resizable: false,
           minimizable: false,
           maximizable: false,
@@ -349,7 +349,9 @@ function buildAndSetMenu(price, change) {
   if (typeof change === 'number' && !isNaN(change)) {
     changeStr = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
   }
-  tray.setContextMenu(buildContextMenu(priceStr, changeStr));
+  if (tray) {
+    tray.setContextMenu(buildContextMenu(priceStr, changeStr));
+  }
 }
 
 async function updatePrice(force = false) {
@@ -406,18 +408,19 @@ function createWindow() {
     // Fallback for Windows: frameless, transparent window
     const isWin = process.platform === 'win32';
     const windowOptions = {
-      width: 300,
-      height: 200,
-      x: width - 320, // Pin to right
-      y: 20, // Pin to top
+      width: 180,
+      height: 120,
+      x: width - 190, // Pin to right with smaller margin
+      y: 10, // Small margin from top
       frame: false,
       transparent: true, // Enable window transparency
       alwaysOnTop: false, // Not always on top
-      show: false,
+      show: false, // Start hidden
       skipTaskbar: true,
       resizable: false,
       movable: true, // Allow window to be dragged
-      focusable: true, // Restore focusable to true to avoid taskbar icon issue
+      focusable: true, // Start with no focus capability
+      hasShadow: false, // Disable shadow for better background blending
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
@@ -428,8 +431,6 @@ function createWindow() {
       }
     };
     mainWindow = new BrowserWindow(windowOptions);
-    // Force window to top right on start
-    mainWindow.setPosition(width - 320, 20);
     
     // Load the index.html file with error handling
     log('Loading index.html');
@@ -449,29 +450,21 @@ function createWindow() {
       showErrorAndQuit('Load Error', err.message);
     });
     
-    // Show window when ready
+    // Show window when ready but in background
     mainWindow.once('ready-to-show', () => {
       log('Window is ready to show');
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.showInactive();
-        // On Windows, try to push window behind Explorer and avoid focus
-        if (process.platform === 'win32') {
-          setTimeout(() => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.blur();
-              mainWindow.setAlwaysOnTop(false, 'normal');
-            }
-          }, 200);
+      
+      // Wait for app to fully initialize before showing window
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            // Show notification popup
+            if (Notification && Notification.isSupported()) {
+              new Notification({
+                title: 'Bitcoin Price Widget',
+                body: 'Running in background',
+                silent: true
+              }).show();
+            }  
         }
-        // Show Windows notification popup
-        if (process.platform === 'win32' && Notification && Notification.isSupported()) {
-          new Notification({
-            title: 'Bitcoin Price Widget',
-            body: 'Added to desktop',
-            silent: false
-          }).show();
-        }
-      }
     });
     
     // Handle window close
@@ -493,6 +486,7 @@ function createWindow() {
     mainWindow.on('blur', () => log('Window blurred'));
     
     log('Window creation completed');
+    mainWindow.showInactive();
     
   } catch (error) {
     log(`Error in createWindow: ${error.message}\n${error.stack}`);
