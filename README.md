@@ -1,3 +1,5 @@
+[Download latest Windows build](https://github.com/funyug/crypto-price-widget/releases/tag/v1.0.5)
+
 # Crypto Price Widget
 
 A minimal crypto price tracker that runs in the system tray on Windows 11.
@@ -59,3 +61,4 @@ The executable will be created in the `dist` folder.
 - Internet connection is required for price updates
 - For auto start, the app adds itself to the current user's startup (no admin required). If you see a permission error, run the app from a user-writable location (not Program Files).
 - For major coins, the app always selects the official/canonical coin (e.g., "btc" → Bitcoin, "eth" → Ethereum, etc.) even if there are multiple tokens with the same symbol on CoinGecko.
+
